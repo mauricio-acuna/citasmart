@@ -1,0 +1,179 @@
+version: '3.8'
+
+services:
+  # Base de datos PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: citasmart-postgres
+    environment:
+      POSTGRES_DB: citasmart_dev
+      POSTGRES_USER: citasmart
+      POSTGRES_PASSWORD: citasmart123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - citasmart-network
+
+  # Cache Redis
+  redis:
+    image: redis:7-alpine
+    container_name: citasmart-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - citasmart-network
+
+  # Backend API Gateway
+  api-gateway:
+    build:
+      context: ./backend/api-gateway
+      dockerfile: Dockerfile
+    container_name: citasmart-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - DATABASE_URL=jdbc:postgresql://postgres:5432/citasmart_dev
+      - DATABASE_USERNAME=citasmart
+      - DATABASE_PASSWORD=citasmart123
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - citasmart-network
+
+  # Microservicio de Usuarios
+  user-service:
+    build:
+      context: ./backend/user-service
+      dockerfile: Dockerfile
+    container_name: citasmart-user-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - DATABASE_URL=jdbc:postgresql://postgres:5432/citasmart_dev
+      - DATABASE_USERNAME=citasmart
+      - DATABASE_PASSWORD=citasmart123
+      - REDIS_HOST=redis
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - citasmart-network
+
+  # Microservicio de Reservas
+  booking-service:
+    build:
+      context: ./backend/booking-service
+      dockerfile: Dockerfile
+    container_name: citasmart-booking-service
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - DATABASE_URL=jdbc:postgresql://postgres:5432/citasmart_dev
+      - DATABASE_USERNAME=citasmart
+      - DATABASE_PASSWORD=citasmart123
+      - REDIS_HOST=redis
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - citasmart-network
+
+  # Microservicio de Pagos
+  payment-service:
+    build:
+      context: ./backend/payment-service
+      dockerfile: Dockerfile
+    container_name: citasmart-payment-service
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - DATABASE_URL=jdbc:postgresql://postgres:5432/citasmart_dev
+      - DATABASE_USERNAME=citasmart
+      - DATABASE_PASSWORD=citasmart123
+      - REDIS_HOST=redis
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - citasmart-network
+
+  # Frontend Angular
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: citasmart-frontend
+    ports:
+      - "4200:80"
+    environment:
+      - API_BASE_URL=http://api-gateway:8080/api
+    depends_on:
+      - api-gateway
+    networks:
+      - citasmart-network
+
+  # Nginx Load Balancer (Producción)
+  nginx:
+    image: nginx:alpine
+    container_name: citasmart-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/ssl:/etc/nginx/ssl
+    depends_on:
+      - frontend
+      - api-gateway
+    networks:
+      - citasmart-network
+
+  # Monitoring con Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: citasmart-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - citasmart-network
+
+  # Monitoring con Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: citasmart-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - citasmart-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  citasmart-network:
+    driver: bridge
