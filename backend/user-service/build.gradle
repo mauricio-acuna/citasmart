@@ -1,0 +1,143 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '2.7.18'
+    id 'io.spring.dependency-management' version '1.1.4'
+    id 'org.flywaydb.flyway' version '8.5.13'
+    id 'jacoco'
+}
+
+group = 'com.citasmart'
+version = '1.0.0'
+
+java {
+    sourceCompatibility = '17'
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    set('springCloudVersion', "2021.0.8")
+    set('testcontainersVersion', "1.19.3")
+    set('mapstructVersion', "1.5.5.Final")
+}
+
+dependencies {
+    // Spring Boot Starters
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+    
+    // Spring Cloud
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+    implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'
+    implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-resilience4j'
+    
+    // Database
+    implementation 'org.postgresql:postgresql'
+    implementation 'org.flywaydb:flyway-core'
+    runtimeOnly 'com.h2database:h2'
+    
+    // JWT
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.3'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.3'
+    
+    // MapStruct for mapping
+    implementation "org.mapstruct:mapstruct:${mapstructVersion}"
+    annotationProcessor "org.mapstruct:mapstruct-processor:${mapstructVersion}"
+    
+    // Documentation
+    implementation 'org.springdoc:springdoc-openapi-ui:1.7.0'
+    
+    // Utilities
+    implementation 'org.apache.commons:commons-lang3:3.13.0'
+    implementation 'org.apache.commons:commons-collections4:4.4'
+    
+    // Monitoring
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+    
+    // Development
+    compileOnly 'org.projectlombok:lombok'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+    annotationProcessor 'org.projectlombok:lombok'
+    
+    // Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:postgresql'
+    testImplementation 'org.testcontainers:testcontainers'
+    testImplementation 'com.github.tomakehurst:wiremock-jre8:2.35.0'
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+        mavenBom "org.testcontainers:testcontainers-bom:${testcontainersVersion}"
+    }
+}
+
+// Flyway configuration
+flyway {
+    url = 'jdbc:postgresql://localhost:5432/citasmart_db'
+    user = 'citasmart_user'
+    password = 'citasmart_pass'
+    schemas = ['public']
+    locations = ['classpath:db/migration']
+    baselineOnMigrate = true
+    validateOnMigrate = true
+}
+
+// Test configuration
+tasks.named('test') {
+    useJUnitPlatform()
+    finalizedBy jacocoTestReport
+}
+
+// Code coverage
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+// Spring Boot configuration
+springBoot {
+    buildInfo()
+}
+
+// JAR configuration
+jar {
+    enabled = false
+    archiveClassifier = ''
+}
+
+// Build optimization
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-parameters']
+}
+
+// Gradle wrapper task
+wrapper {
+    gradleVersion = '8.5'
+    distributionType = Wrapper.DistributionType.BIN
+}

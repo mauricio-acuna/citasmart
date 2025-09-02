@@ -1,0 +1,187 @@
+server:
+  port: 8082
+  servlet:
+    context-path: /api/v1
+
+spring:
+  application:
+    name: appointment-service
+  
+  profiles:
+    active: dev
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/citasmart
+    username: citasmart_user
+    password: citasmart_pass
+    driver-class-name: org.postgresql.Driver
+    
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: true
+        default_schema: public
+    open-in-view: false
+    
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    out-of-order: false
+    
+  redis:
+    host: localhost
+    port: 6379
+    password: 
+    timeout: 2000ms
+    jedis:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+        
+  cache:
+    type: redis
+    redis:
+      time-to-live: 600000
+      cache-null-values: false
+      
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:noreply@citasmart.com}
+    password: ${MAIL_PASSWORD:password}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8081/api/v1
+
+logging:
+  level:
+    com.citasmart.appointmentservice: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/appointment-service.log
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: true
+    db:
+      enabled: true
+
+app:
+  name: "CitaSmart Appointment Service"
+  version: "1.0.0"
+  description: "Microservicio para gestión de citas médicas"
+  
+  cors:
+    allowed-origins: 
+      - "http://localhost:4200"
+      - "http://localhost:3000"
+    allowed-methods: 
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+    allowed-headers: 
+      - "*"
+    allow-credentials: true
+    max-age: 3600
+    
+  jwt:
+    secret: ${JWT_SECRET:mySecretKey}
+    expiration: 86400000 # 24 hours
+    
+  security:
+    rate-limit:
+      enabled: true
+      requests-per-minute: 100
+      
+  notification:
+    email:
+      enabled: true
+      templates:
+        appointment-created: "appointment-created.html"
+        appointment-updated: "appointment-updated.html" 
+        appointment-cancelled: "appointment-cancelled.html"
+        appointment-reminder: "appointment-reminder.html"
+    sms:
+      enabled: false
+      
+  scheduling:
+    appointment-reminder:
+      enabled: true
+      hours-before: 24
+      cron: "0 0 9 * * ?" # Daily at 9 AM
+      
+  business:
+    working-hours:
+      start: "08:00"
+      end: "18:00"
+    working-days:
+      - MONDAY
+      - TUESDAY
+      - WEDNESDAY
+      - THURSDAY
+      - FRIDAY
+    appointment-duration: 30 # minutes
+    advance-booking-days: 30
+    cancellation-hours: 24
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+      
+  datasource:
+    url: jdbc:h2:mem:testdb
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+    
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    
+  h2:
+    console:
+      enabled: true
+      
+  redis:
+    host: localhost
+    port: 6370 # Different port for testing
+
+logging:
+  level:
+    com.citasmart.appointmentservice: DEBUG

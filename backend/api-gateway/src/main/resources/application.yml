@@ -1,0 +1,234 @@
+# =================================================================
+# CitaSmart API Gateway Configuration
+# =================================================================
+
+# Application Configuration
+spring:
+  application:
+    name: citasmart-api-gateway
+  profiles:
+    active: development
+
+  # Spring Cloud Gateway Configuration
+  cloud:
+    gateway:
+      routes:
+        # User Service Routes
+        - id: user-service
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/v1/users/**,/api/v1/auth/**
+          filters:
+            - StripPrefix=0
+            
+        # Booking Service Routes
+        - id: booking-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/v1/bookings/**,/api/v1/services/**
+          filters:
+            - StripPrefix=0
+            
+        # Payment Service Routes
+        - id: payment-service
+          uri: http://localhost:8083
+          predicates:
+            - Path=/api/v1/payments/**
+          filters:
+            - StripPrefix=0
+            
+        # Professional Service Routes
+        - id: professional-service
+          uri: http://localhost:8084
+          predicates:
+            - Path=/api/v1/professionals/**
+          filters:
+            - StripPrefix=0
+            
+        # Facility Service Routes
+        - id: facility-service
+          uri: http://localhost:8085
+          predicates:
+            - Path=/api/v1/facilities/**
+          filters:
+            - StripPrefix=0
+            
+        # Notification Service Routes
+        - id: notification-service
+          uri: http://localhost:8086
+          predicates:
+            - Path=/api/v1/notifications/**
+          filters:
+            - StripPrefix=0
+            
+        # Report Service Routes
+        - id: report-service
+          uri: http://localhost:8087
+          predicates:
+            - Path=/api/v1/reports/**
+          filters:
+            - StripPrefix=0
+
+      # Global CORS Configuration
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - PATCH
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+
+      # Rate Limiting Configuration
+      filter:
+        request-rate-limiter:
+          redis-rate-limiter:
+            replenish-rate: 10 # Requests per second
+            burst-capacity: 20 # Maximum burst size
+            requested-tokens: 1 # Tokens requested per request
+
+  # Redis Configuration for Session Management
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: # Leave empty for development
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1ms
+          max-idle: 8
+          min-idle: 0
+
+# Server Configuration
+server:
+  port: 8080
+  error:
+    include-message: always
+    include-binding-errors: always
+
+# JWT Configuration
+citasmart:
+  jwt:
+    secret: dGhpc0lzQVZlcnlTZWNyZXRLZXlGb3JDaXRhU21hcnRBcHBsaWNhdGlvbjIwMjU=
+    expiration: 86400000 # 24 hours in milliseconds
+    refresh-expiration: 604800000 # 7 days in milliseconds
+  security:
+    enabled: true
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,gateway
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# Logging Configuration
+logging:
+  level:
+    com.citasmart: DEBUG
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.security: DEBUG
+    reactor.netty: INFO
+    io.netty: INFO
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# OpenAPI Documentation
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    config-url: /v3/api-docs/swagger-config
+    urls:
+      - url: /v3/api-docs
+        name: API Gateway
+      - url: http://localhost:8081/v3/api-docs
+        name: User Service
+      - url: http://localhost:8082/v3/api-docs
+        name: Booking Service
+      - url: http://localhost:8083/v3/api-docs
+        name: Payment Service
+
+# Circuit Breaker Configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      user-service:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        permittedNumberOfCallsInHalfOpenState: 3
+        slidingWindowType: COUNT_BASED
+        minimumNumberOfCalls: 5
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+      booking-service:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        permittedNumberOfCallsInHalfOpenState: 3
+        slidingWindowType: COUNT_BASED
+        minimumNumberOfCalls: 5
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: development
+
+# Development specific settings
+logging:
+  level:
+    com.citasmart: DEBUG
+    root: INFO
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: production
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+# Production specific settings
+logging:
+  level:
+    com.citasmart: INFO
+    root: WARN
+
+# JWT configuration for production
+citasmart:
+  jwt:
+    secret: ${JWT_SECRET:dGhpc0lzQVZlcnlTZWNyZXRLZXlGb3JDaXRhU21hcnRBcHBsaWNhdGlvbjIwMjU=}
+    expiration: ${JWT_EXPIRATION:86400000}
+    refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+  security:
+    enabled: true
