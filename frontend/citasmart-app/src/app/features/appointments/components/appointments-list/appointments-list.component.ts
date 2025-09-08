@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -6,15 +6,17 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { AppointmentService, AppointmentResponse } from '../../services/appointment.service';
 
 interface Appointment {
   id: number;
   date: string;
   time: string;
-  service: string;
+  serviceType: string;
   specialty: string;
   doctor: string;
-  status: 'confirmed' | 'pending' | 'cancelled' | 'completed';
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
   reason: string;
 }
 
@@ -28,7 +30,8 @@ interface Appointment {
     MatButtonModule,
     MatIconModule,
     MatChipsModule,
-    MatMenuModule
+    MatMenuModule,
+    MatSnackBarModule
   ],
   template: `
     <div class="appointments-list-container">
@@ -46,18 +49,18 @@ interface Appointment {
             <div mat-card-avatar class="appointment-avatar">
               <mat-icon>event</mat-icon>
             </div>
-            <mat-card-title>{{appointment.service}}</mat-card-title>
+            <mat-card-title>{{appointment.serviceType}}</mat-card-title>
             <mat-card-subtitle>{{appointment.specialty}}</mat-card-subtitle>
             <div class="card-actions">
               <button mat-icon-button [matMenuTriggerFor]="menu">
                 <mat-icon>more_vert</mat-icon>
               </button>
               <mat-menu #menu="matMenu">
-                <button mat-menu-item *ngIf="appointment.status === 'confirmed'">
+                <button mat-menu-item *ngIf="appointment.status === 'CONFIRMED'" (click)="rescheduleAppointment(appointment.id)">
                   <mat-icon>edit</mat-icon>
                   Reprogramar
                 </button>
-                <button mat-menu-item *ngIf="appointment.status !== 'cancelled'">
+                <button mat-menu-item *ngIf="appointment.status !== 'CANCELLED'" (click)="cancelAppointment(appointment.id)">
                   <mat-icon>cancel</mat-icon>
                   Cancelar
                 </button>
@@ -96,7 +99,7 @@ interface Appointment {
             </mat-chip-listbox>
           </mat-card-content>
 
-          <mat-card-actions *ngIf="appointment.status === 'confirmed'">
+          <mat-card-actions *ngIf="appointment.status === 'CONFIRMED'">
             <button mat-button color="primary">
               <mat-icon>video_call</mat-icon>
               Unirse a la consulta
@@ -216,39 +219,102 @@ interface Appointment {
     }
   `]
 })
-export class AppointmentsListComponent {
-  appointments: Appointment[] = [
-    {
-      id: 1,
-      date: '2024-01-15',
-      time: '10:00 AM',
-      service: 'Consulta General',
-      specialty: 'Medicina General',
-      doctor: 'Dr. Juan Pérez',
-      status: 'confirmed',
-      reason: 'Consulta de rutina'
-    },
-    {
-      id: 2,
-      date: '2024-01-20',
-      time: '02:30 PM',
-      service: 'Especialista',
-      specialty: 'Cardiología',
-      doctor: 'Dra. María González',
-      status: 'pending',
-      reason: 'Control cardiovascular'
-    },
-    {
-      id: 3,
-      date: '2024-01-10',
-      time: '09:00 AM',
-      service: 'Examen Médico',
-      specialty: 'Medicina General',
-      doctor: 'Dr. Carlos López',
-      status: 'completed',
-      reason: 'Examen anual completo'
+export class AppointmentsListComponent implements OnInit {
+  appointments: Appointment[] = [];
+  isLoading = true;
+
+  constructor(
+    private appointmentService: AppointmentService,
+    private snackBar: MatSnackBar
+  ) { }
+
+  ngOnInit() {
+    this.loadAppointments();
+  }
+
+  loadAppointments() {
+    this.isLoading = true;
+    this.appointmentService.getUserAppointments().subscribe({
+      next: (response) => {
+        this.appointments = response.content.map(apt => ({
+          id: apt.id,
+          date: apt.date,
+          time: apt.time,
+          serviceType: apt.serviceType,
+          specialty: apt.specialty,
+          doctor: apt.doctor || 'Por asignar',
+          status: apt.status,
+          reason: apt.reason
+        }));
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Error loading appointments:', error);
+        this.isLoading = false;
+        // Use fallback data for development
+        this.appointments = [
+          {
+            id: 1,
+            date: '2024-01-15',
+            time: '10:00',
+            serviceType: 'Consulta General',
+            specialty: 'Medicina General',
+            doctor: 'Dr. Juan Pérez',
+            status: 'CONFIRMED',
+            reason: 'Consulta de rutina'
+          },
+          {
+            id: 2,
+            date: '2024-01-20',
+            time: '14:30',
+            serviceType: 'Especialista',
+            specialty: 'Cardiología',
+            doctor: 'Dra. María González',
+            status: 'PENDING',
+            reason: 'Control cardiovascular'
+          },
+          {
+            id: 3,
+            date: '2024-01-10',
+            time: '09:00',
+            serviceType: 'Examen Médico',
+            specialty: 'Medicina General',
+            doctor: 'Dr. Carlos López',
+            status: 'COMPLETED',
+            reason: 'Examen anual completo'
+          }
+        ];
+      }
+    });
+  }
+
+  cancelAppointment(appointmentId: number) {
+    if (confirm('¿Estás seguro de que deseas cancelar esta cita?')) {
+      this.appointmentService.cancelAppointment(appointmentId).subscribe({
+        next: () => {
+          this.snackBar.open('Cita cancelada exitosamente', 'Cerrar', {
+            duration: 3000,
+            panelClass: ['success-snackbar']
+          });
+          this.loadAppointments(); // Reload the list
+        },
+        error: (error) => {
+          console.error('Error cancelling appointment:', error);
+          this.snackBar.open('Error al cancelar la cita', 'Cerrar', {
+            duration: 5000,
+            panelClass: ['error-snackbar']
+          });
+        }
+      });
     }
-  ];
+  }
+
+  rescheduleAppointment(appointmentId: number) {
+    // TODO: Implement reschedule dialog
+    this.snackBar.open('Función de reprogramación en desarrollo', 'Cerrar', {
+      duration: 3000
+    });
+  }
 
   formatDate(dateString: string): string {
     const date = new Date(dateString);
@@ -262,20 +328,20 @@ export class AppointmentsListComponent {
 
   getStatusLabel(status: string): string {
     const labels = {
-      'confirmed': 'Confirmada',
-      'pending': 'Pendiente',
-      'cancelled': 'Cancelada',
-      'completed': 'Completada'
+      'CONFIRMED': 'Confirmada',
+      'PENDING': 'Pendiente',
+      'CANCELLED': 'Cancelada',
+      'COMPLETED': 'Completada'
     };
     return labels[status as keyof typeof labels] || status;
   }
 
   getStatusColor(status: string): 'primary' | 'accent' | 'warn' {
     const colors = {
-      'confirmed': 'primary' as const,
-      'pending': 'accent' as const,
-      'cancelled': 'warn' as const,
-      'completed': 'primary' as const
+      'CONFIRMED': 'primary' as const,
+      'PENDING': 'accent' as const,
+      'CANCELLED': 'warn' as const,
+      'COMPLETED': 'primary' as const
     };
     return colors[status as keyof typeof colors] || 'primary';
   }

@@ -1,6 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -10,6 +11,8 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatStepperModule } from '@angular/material/stepper';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { AppointmentService, CreateAppointmentRequest } from '../../services/appointment.service';
 
 @Component({
   selector: 'app-book-appointment',
@@ -25,7 +28,8 @@ import { MatIconModule } from '@angular/material/icon';
     MatDatepickerModule,
     MatNativeDateModule,
     MatStepperModule,
-    MatIconModule
+    MatIconModule,
+    MatSnackBarModule
   ],
   template: `
     <div class="book-appointment-container">
@@ -53,11 +57,9 @@ import { MatIconModule } from '@angular/material/icon';
                 <mat-form-field appearance="outline" class="full-width">
                   <mat-label>Especialidad</mat-label>
                   <mat-select formControlName="specialty" required>
-                    <mat-option value="medicina-general">Medicina General</mat-option>
-                    <mat-option value="cardiologia">Cardiología</mat-option>
-                    <mat-option value="dermatologia">Dermatología</mat-option>
-                    <mat-option value="pediatria">Pediatría</mat-option>
-                    <mat-option value="ginecologia">Ginecología</mat-option>
+                    <mat-option *ngFor="let specialty of specialties" [value]="specialty.code">
+                      {{specialty.name}}
+                    </mat-option>
                   </mat-select>
                 </mat-form-field>
 
@@ -84,14 +86,9 @@ import { MatIconModule } from '@angular/material/icon';
                 <mat-form-field appearance="outline" class="full-width">
                   <mat-label>Hora</mat-label>
                   <mat-select formControlName="time" required>
-                    <mat-option value="08:00">08:00 AM</mat-option>
-                    <mat-option value="09:00">09:00 AM</mat-option>
-                    <mat-option value="10:00">10:00 AM</mat-option>
-                    <mat-option value="11:00">11:00 AM</mat-option>
-                    <mat-option value="14:00">02:00 PM</mat-option>
-                    <mat-option value="15:00">03:00 PM</mat-option>
-                    <mat-option value="16:00">04:00 PM</mat-option>
-                    <mat-option value="17:00">05:00 PM</mat-option>
+                    <mat-option *ngFor="let slot of availableSlots" [value]="slot">
+                      {{slot}}
+                    </mat-option>
                   </mat-select>
                 </mat-form-field>
 
@@ -214,11 +211,13 @@ import { MatIconModule } from '@angular/material/icon';
     }
   `]
 })
-export class BookAppointmentComponent {
+export class BookAppointmentComponent implements OnInit {
   serviceForm: FormGroup;
   dateTimeForm: FormGroup;
   additionalInfoForm: FormGroup;
   isSubmitting = false;
+  availableSlots: string[] = [];
+  specialties: {code: string, name: string}[] = [];
 
   serviceTypes = {
     'consulta': 'Consulta General',
@@ -227,15 +226,12 @@ export class BookAppointmentComponent {
     'control': 'Control de Rutina'
   };
 
-  specialties = {
-    'medicina-general': 'Medicina General',
-    'cardiologia': 'Cardiología',
-    'dermatologia': 'Dermatología',
-    'pediatria': 'Pediatría',
-    'ginecologia': 'Ginecología'
-  };
-
-  constructor(private fb: FormBuilder) {
+  constructor(
+    private fb: FormBuilder,
+    private appointmentService: AppointmentService,
+    private router: Router,
+    private snackBar: MatSnackBar
+  ) {
     this.serviceForm = this.fb.group({
       serviceType: ['', Validators.required],
       specialty: ['', Validators.required]
@@ -252,6 +248,66 @@ export class BookAppointmentComponent {
     });
   }
 
+  ngOnInit() {
+    this.loadSpecialties();
+    
+    // Watch for specialty changes to load available slots
+    this.serviceForm.get('specialty')?.valueChanges.subscribe(specialty => {
+      if (specialty && this.dateTimeForm.get('date')?.value) {
+        this.loadAvailableSlots();
+      }
+    });
+
+    // Watch for date changes to load available slots  
+    this.dateTimeForm.get('date')?.valueChanges.subscribe(date => {
+      if (date && this.serviceForm.get('specialty')?.value) {
+        this.loadAvailableSlots();
+      }
+    });
+  }
+
+  loadSpecialties() {
+    this.appointmentService.getSpecialties().subscribe({
+      next: (specialties) => {
+        this.specialties = specialties;
+      },
+      error: (error) => {
+        console.error('Error loading specialties:', error);
+        // Use fallback specialties
+        this.specialties = [
+          { code: 'medicina-general', name: 'Medicina General' },
+          { code: 'cardiologia', name: 'Cardiología' },
+          { code: 'dermatologia', name: 'Dermatología' },
+          { code: 'pediatria', name: 'Pediatría' },
+          { code: 'ginecologia', name: 'Ginecología' }
+        ];
+      }
+    });
+  }
+
+  loadAvailableSlots() {
+    const date = this.dateTimeForm.get('date')?.value;
+    const specialty = this.serviceForm.get('specialty')?.value;
+    
+    if (date && specialty) {
+      const dateString = date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+      
+      this.appointmentService.getAvailableSlots(dateString, specialty).subscribe({
+        next: (slots) => {
+          this.availableSlots = slots;
+        },
+        error: (error) => {
+          console.error('Error loading available slots:', error);
+          // Use fallback slots
+          this.availableSlots = [
+            '08:00', '09:00', '10:00', '11:00', 
+            '14:00', '15:00', '16:00', '17:00'
+          ];
+        }
+      });
+    }
+  }
+
   getServiceTypeLabel(): string {
     const value = this.serviceForm.get('serviceType')?.value;
     return this.serviceTypes[value as keyof typeof this.serviceTypes] || value;
@@ -259,7 +315,8 @@ export class BookAppointmentComponent {
 
   getSpecialtyLabel(): string {
     const value = this.serviceForm.get('specialty')?.value;
-    return this.specialties[value as keyof typeof this.specialties] || value;
+    const specialty = this.specialties.find(s => s.code === value);
+    return specialty?.name || value;
   }
 
   getFormattedDate(): string {
@@ -274,21 +331,33 @@ export class BookAppointmentComponent {
     if (this.serviceForm.valid && this.dateTimeForm.valid && this.additionalInfoForm.valid) {
       this.isSubmitting = true;
       
-      const appointmentData = {
-        ...this.serviceForm.value,
-        ...this.dateTimeForm.value,
-        ...this.additionalInfoForm.value
+      const appointmentData: CreateAppointmentRequest = {
+        serviceType: this.serviceForm.get('serviceType')?.value,
+        specialty: this.serviceForm.get('specialty')?.value,
+        date: this.dateTimeForm.get('date')?.value.toISOString().split('T')[0],
+        time: this.dateTimeForm.get('time')?.value,
+        reason: this.additionalInfoForm.get('reason')?.value,
+        notes: this.additionalInfoForm.get('notes')?.value
       };
 
-      // TODO: Call appointment service to book the appointment
-      console.log('Booking appointment:', appointmentData);
-      
-      // Simulate API call
-      setTimeout(() => {
-        this.isSubmitting = false;
-        alert('¡Cita agendada exitosamente!');
-        // TODO: Navigate to appointments list or dashboard
-      }, 2000);
+      this.appointmentService.createAppointment(appointmentData).subscribe({
+        next: (response) => {
+          this.isSubmitting = false;
+          this.snackBar.open('¡Cita agendada exitosamente!', 'Cerrar', {
+            duration: 3000,
+            panelClass: ['success-snackbar']
+          });
+          this.router.navigate(['/appointments']);
+        },
+        error: (error) => {
+          this.isSubmitting = false;
+          console.error('Error booking appointment:', error);
+          this.snackBar.open('Error al agendar la cita. Intenta nuevamente.', 'Cerrar', {
+            duration: 5000,
+            panelClass: ['error-snackbar']
+          });
+        }
+      });
     }
   }
 }
