@@ -55,6 +55,10 @@ import { AuthService } from '../../../core/services/auth.service';
                 <mat-icon>person</mat-icon>
                 Mi Perfil
               </button>
+              <button mat-menu-item routerLink="/pwa">
+                <mat-icon>install_mobile</mat-icon>
+                Instalar App
+              </button>
               <button mat-menu-item>
                 <mat-icon>settings</mat-icon>
                 Configuración

@@ -27,6 +27,11 @@ export const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'pwa',
+    loadComponent: () => import('./shared/components/pwa-install/pwa-install.component').then(m => m.PwaInstallComponent),
+    canActivate: [AuthGuard]
+  },
+  {
     path: '**',
     redirectTo: '/dashboard'
   }

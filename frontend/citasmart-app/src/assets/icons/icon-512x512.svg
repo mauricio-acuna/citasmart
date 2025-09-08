@@ -1,0 +1,30 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="64" fill="#673ab7"/>
+  <rect x="64" y="64" width="384" height="384" rx="32" fill="white"/>
+  
+  <!-- Calendar icon -->
+  <rect x="128" y="144" width="256" height="224" rx="16" fill="#673ab7"/>
+  <rect x="144" y="160" width="224" height="192" rx="8" fill="white"/>
+  
+  <!-- Calendar header -->
+  <rect x="144" y="160" width="224" height="48" fill="#4caf50"/>
+  
+  <!-- Calendar grid -->
+  <circle cx="192" cy="240" r="12" fill="#673ab7"/>
+  <circle cx="256" cy="240" r="12" fill="#673ab7"/>
+  <circle cx="320" cy="240" r="12" fill="#673ab7"/>
+  <circle cx="192" cy="288" r="12" fill="#4caf50"/>
+  <circle cx="256" cy="288" r="12" fill="#673ab7"/>
+  <circle cx="320" cy="288" r="12" fill="#673ab7"/>
+  <circle cx="192" cy="320" r="12" fill="#673ab7"/>
+  <circle cx="256" cy="320" r="12" fill="#673ab7"/>
+  <circle cx="320" cy="320" r="12" fill="#673ab7"/>
+  
+  <!-- Clock overlay -->
+  <circle cx="384" cy="192" r="48" fill="white" stroke="#4caf50" stroke-width="4"/>
+  <line x1="384" y1="192" x2="384" y2="168" stroke="#4caf50" stroke-width="3" stroke-linecap="round"/>
+  <line x1="384" y1="192" x2="400" y2="192" stroke="#4caf50" stroke-width="2" stroke-linecap="round"/>
+  
+  <!-- Title -->
+  <text x="256" y="420" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="36" font-weight="bold">CitaSmart</text>
+</svg>
